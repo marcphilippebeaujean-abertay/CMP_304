@@ -1,10 +1,34 @@
 # Import libraries
 import cv2
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
+import sklearn as sk
+import glob
+import os
+from pathlib import Path
 
-    
+# # # LOAD DATA AND ASSIGN LABELS
+
+# Create a list of labels for the emotions that are being read
+list_of_labels = [];
+# Create a list of feature vectors
+
+
+def create_image_set(set_directory):
+    # Use OS Walk to get the name of each sub directory
+    for root, directories, files in os.walk(set_directory):
+        # Loop through sub directorys in main directory to get their names
+        for directory in directories:
+            FileNumberInDir = 0;
+            path = "%s/%s"%(set_directory, directory);
+            # Get all the files in that directory
+            for files in glob.glob('%s/*'%path, recursive=True):
+                # Increment file count
+                FileNumberInDir += 1;
+            # Print all the sub-directories of our  training set
+            print(directory + " : " + str(FileNumberInDir));
+
+
 # # # CASCADE VARIABLES AND FUNCTION
 
 # Load cascades
@@ -50,6 +74,8 @@ def get_SURF_feature_vector(input_img, example):
     
 
 # # # MAIN APPLICATION
-    
 
-get_SURF_feature_vector(cv2.imread('006_an_000_0024.jpg', 0), True);
+create_image_set("Training_Set");
+print(list_of_labels);
+
+# get_SURF_feature_vector(cv2.imread('006_an_000_0024.jpg', 0), True);
