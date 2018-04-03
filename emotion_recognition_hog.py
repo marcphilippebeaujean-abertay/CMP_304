@@ -25,8 +25,8 @@ list_of_features = [];
 max_surf_features = 50;
 
 # Create area of interest dimensions
-hroi = 170;
-wroi = 160;
+hroi = 200;
+wroi = 200;
 
 def create_image_set(set_directory):
     # Use OS Walk to get the name of each sub directory
@@ -58,29 +58,39 @@ face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml');
 scale_reduction = 1.5;
 min_accepted_neighbour_zones = 10;
 
-def extract_feature(image_list_index, example, hog):
-    # Locate the image from the list of images using the index
-    grayscale_img = cv2.imread(list_of_images[image_list_index]);
-    # Detect faces in image using Haar Cascade - function returns the definitions of the the detected rectangle in tuples
-    faces = face_cascade.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones);
-    # Check if we found a face
-    if len(faces) > 0:
-        # For each detected face, generate the coordinates and dimensions of the face
-        for x, y, height, width in faces:
-            # Crop the detected face (area of interest) with approximate values for the faces
-            area_of_interest = grayscale_img[y:(y+width), x:(x+height)];
-            # Resize the area of interest to create uniform face sizes
-            # Check if we want to plot the result of this function
-            if example:
-                # Return the final cropped version of the grayscale image
-                plt.imshow(area_of_interest);
-            # Extract hog features from the area of interest
-            list_of_features.append(hog.compute(area_of_interest, (64, 64)));
-            # Add label to the final label set from labels that were assigned at the beginning
-            final_set_labels.append(initial_list_of_labels[image_list_index]);
-    # Otherwise, don't extract the image's features if haar cascade failed
-    else:
-        print("Failed to find face! Removing file " + list_of_images[image_list_index] + " from data base.");
+def extract_features(hog):
+    # Create debugging trackers
+    haar_failed = 0;
+    resize_failed = 0;
+    # Iterate through the data set of images
+    for x in range(0, len(initial_list_of_labels)):
+        # Locate the image from the list of images using the index
+        grayscale_img = cv2.imread(list_of_images[x]);
+        # Detect faces in image using Haar Cascade - function returns the definitions of the the detected rectangle in tuples
+        faces = face_cascade.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones);
+        # Check if we found a face
+        if len(faces) > 0:
+            # For each detected face, generate the coordinates and dimensions of the face
+            for x, y, height, width in faces:
+                # Crop the detected face (area of interest) with approximate values for the faces
+                area_of_interest = grayscale_img[y:(y+width), x:(x+height)];
+                # 
+                try:
+                    # Try to resize the area of interest to create uniform face sizes
+                    resized_aoi = cv2.resize(area_of_interest, (wroi, hroi));
+                    # Extract hog features from the area of interest
+                    list_of_features.append(hog.compute(resized_aoi, (64, 64)));
+                    # Add label to the final label set from labels that were assigned at the beginning
+                    final_set_labels.append(initial_list_of_labels[x]);
+                except:
+                    # Don't do anything, if resizing fails
+                    resize_failed += 1;
+                    pass
+        else:
+            # We failed to find an image!
+            haar_failed += 1;
+    print("Failed Haar Cascades: " + str(haar_failed) + " Resize Failed: " + str(resize_failed));
+    
 
 # # # CLASSIFICATION VARIABLES
         
@@ -96,12 +106,13 @@ def score_svm(svm, testing_features, testing_labels):
     # Make prediction based on the testing features
     _, predicted_labels = svm.predict(testing_features);
     # Score the classifier based on its accuracy
-    return metrics.accuracy_score(testing_labels, predicted_labels);
+    return metrics.accuracy_score(testing_labels, predicted_labels) * 100;
 
 # # # MAIN APPLICATION
         
 # Load our images into open cv by creating references to each image
 create_image_set("Training_Set_Large");
+print("Number of pictures: " + str(len(list_of_images)) + " Number of Labels: " + str(len(initial_list_of_labels)));
 # Create specifications for HOG
 win_size = (48, 96);
 block_size = (16, 16);
@@ -110,17 +121,8 @@ cell_size = (8, 8)
 num_bins = 9
 # Create the HOG descriptor
 hog = cv2.HOGDescriptor(win_size, block_size, block_stride, cell_size, num_bins);
-print("Number of pictures: " + str(len(list_of_images)) + " Number of Labels: " + str(len(initial_list_of_labels)));
-# Iterate through the data set of images
-for x in range(0, len(initial_list_of_labels)):
-    # Create example condition
-    example = False;
-    # Check if this is the first iteration of the function
-    if x == 0:
-        # We want to visualise the process with the first image
-        example = True;
-    # Extract featuers o feach image
-    aoi = extract_feature(x, example, hog);
+# Extract features for each image
+aoi = extract_features(hog);
 # Check how many images are left after the elimination process
 print("Number of features: " + str(len(list_of_features)) + " Number of Labels: " + str(len(final_set_labels)));
 # Convert lists into data types that are compatible with OpenCV
@@ -133,6 +135,6 @@ training_features, testing_features, training_labels, testing_lables = ms.train_
 # Create the svm
 my_svm = train_svm(training_features, training_labels);
 # Now that we have trained the SVM, make sure it can classify the training set
-print(score_svm(my_svm, training_features, training_labels));
+print("Training Accuracy: " + str(score_svm(my_svm, training_features, training_labels)) + "%");
 # See how it performs on the test set
-print(score_svm(my_svm, testing_features, testing_lables));
+print("Testing Accuracy: " + str(score_svm(my_svm, testing_features, testing_lables)) + "%");
