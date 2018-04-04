@@ -86,7 +86,9 @@ def create_image_set(set_directory):
                 # Increment file count
                 FileNumberInDir += 1;
                 # Locate the image from the list and read it using OpenCV
-                grayscale_img = cv2.imread(file);
+                grayscale_img = cv2.imread(file, 0);
+                # Apply histogram equalisation to expose features
+                grayscale_img = cv2.equalizeHist(grayscale_img);
                 # Detect faces in image using Haar Cascade - function returns the definitions of the the detected rectangle in tuples
                 faces1 = face_cascade_1.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
                 faces3 = face_cascade_3.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
@@ -186,9 +188,7 @@ print("Training Accuracy: " + str(score_svm(my_svm, training_features, training_
 # See how it performs on the test set
 print("Testing Accuracy: " + str(score_svm(my_svm, testing_features, testing_lables, True)) + "%");
 
-
 # # # INITIATE VIDEO CAPTURE DETECTION
-
 
 video_capture = cv2.VideoCapture(0);
 shouldCapture = True;
