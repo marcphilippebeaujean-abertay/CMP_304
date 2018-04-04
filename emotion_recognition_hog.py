@@ -47,8 +47,24 @@ face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml');
 scale_reduction = 1.5;
 min_accepted_neighbour_zones = 10;
 
-
-
+def extract_aoi_features(detected_faces, grayscale_img, file, label):
+    # For each detected face, generate the coordinates and dimensions of the face
+    for x, y, height, width in detected_faces:
+        # Crop the detected face (area of interest)
+        area_of_interest = grayscale_img[y:(y+width), x:(x+height)];
+        try:
+            # Try to resize the area of interest to create uniform face sizes
+            resized_aoi = cv2.resize(area_of_interest, (wroi, hroi));
+            # Extract hog features from the area of interest
+            list_of_features.append(hog.compute(resized_aoi, (64, 64)));
+            # Create reference to the image
+            list_of_images.append(file);
+            # Add index of directory as a label
+            list_of_labels.append(label);
+        except:
+            # Don't do anything, if resizing fails
+            pass
+    
 def create_image_set(set_directory):
     # Print notifier
     print("Pre-processing data and extracting features...!");
@@ -58,7 +74,6 @@ def create_image_set(set_directory):
         for directory_index, directory in enumerate(directories):
             # Create debugging trackers
             haar_failed = 0;
-            resize_failed = 0;
             # Create variable that tracks number of files in each directory
             FileNumberInDir = 0;
             # Create path name based on the current directory and the directories we are reading from
@@ -71,32 +86,16 @@ def create_image_set(set_directory):
                 grayscale_img = cv2.imread(file);
                 # Detect faces in image using Haar Cascade - function returns the definitions of the the detected rectangle in tuples
                 faces = face_cascade.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones);
-                # Check if we found a face
+                # Check if we found a face, then use it to extract the corresponding features
                 if len(faces) > 0:
-                    # For each detected face, generate the coordinates and dimensions of the face
-                    for x, y, height, width in faces:
-                        # Crop the detected face (area of interest)
-                        area_of_interest = grayscale_img[y:(y+width), x:(x+height)];
-                        try:
-                            # Try to resize the area of interest to create uniform face sizes
-                            resized_aoi = cv2.resize(area_of_interest, (wroi, hroi));
-                            # Extract hog features from the area of interest
-                            list_of_features.append(hog.compute(resized_aoi, (64, 64)));
-                            # Create reference to the image
-                            list_of_images.append(file);
-                            # Add index of directory as a label
-                            list_of_labels.append(directory_index);
-                        except:
-                            # Don't do anything, if resizing fails
-                            resize_failed += 1;
-                            pass
+                    extract_aoi_features(faces, grayscale_img, file, directory_index);
                 else:
                     # We failed to find a face!
                     haar_failed += 1;
-            # Print all the sub-directories of our  training set
-            print(directory + " ( " + str(directory_index) + " ) : " + str(FileNumberInDir));
             # Print how many haar cascades we failed to find
-            print("Failed Haar Cascades: " + str(haar_failed) + " Resize Failed: " + str(resize_failed));
+            print("Failed Haar Cascades: " + str(haar_failed));
+            # Print all the sub-directories of our  training set
+            print(directory + " ( " + str(directory_index) + " ) : " + str(FileNumberInDir - haar_failed));
 
 
 # # # CLASSIFICATION VARIABLES
