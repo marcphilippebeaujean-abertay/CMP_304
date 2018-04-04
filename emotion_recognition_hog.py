@@ -22,11 +22,22 @@ list_of_images = [];
 list_of_features = [];
 # Create list to assign each label value to a string
 emotion_classes = ['Happy', 'Sad', 'Fear', 'Neutral', 'Angry', 'Surprised', 'Disgust'];
-label_classes = [0, 1, 2, 3, 4, 5, 6];
 
 # Create area of interest dimensions
 hroi = 100;
 wroi = 100;
+
+
+# # # CREATE DEPENDANCIES FOR HOG FEATURE EXTRACTION
+
+# Create specifications for HOG
+win_size = (48, 96);
+block_size = (16, 16);
+block_stride = (8, 8);
+cell_size = (8, 8)
+num_bins = 9
+# Create the HOG descriptor
+hog = cv2.HOGDescriptor(win_size, block_size, block_stride, cell_size, num_bins);
 
 # # # CASCADE VARIABLES AND FUNCTION
 
@@ -36,16 +47,18 @@ face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml');
 scale_reduction = 1.5;
 min_accepted_neighbour_zones = 10;
 
-def create_image_set(set_directory, hog):
+
+
+def create_image_set(set_directory):
     # Print notifier
     print("Pre-processing data and extracting features...!");
-    # Create debugging trackers
-    haar_failed = 0;
-    resize_failed = 0;
     # Use OS Walk to get the name of each sub directory
     for root, directories, files in os.walk(set_directory):
         # Loop through sub directorys in main directory to get their names
         for directory_index, directory in enumerate(directories):
+            # Create debugging trackers
+            haar_failed = 0;
+            resize_failed = 0;
             # Create variable that tracks number of files in each directory
             FileNumberInDir = 0;
             # Create path name based on the current directory and the directories we are reading from
@@ -104,27 +117,30 @@ def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion Mat
     """
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
+    Disclaimer: the plot function was not written by me, and is available at "http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html"
     """
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis];
         print("Normalized confusion matrix");
     else:
         print('Confusion matrix, without normalization');
-
-    print(cm);
-
+    
+    # 
     plt.imshow(cm, interpolation='nearest', cmap=cmap);
     plt.title(title);
     plt.colorbar();
+    # Create labels for the values
     tick_marks = np.arange(len(classes));
     plt.xticks(tick_marks, classes, rotation=45);
     plt.yticks(tick_marks, classes);
-
+    
+    #Colour the graph based on how accurate the model was    
     fmt = '.2f' if normalize else 'd';
     thresh = cm.max() / 2.;
     for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
         plt.text(j, i, format(cm[i, j], fmt), horizontalalignment="center", color="white" if cm[i, j] > thresh else "black");
-
+    
+    # Label eaxis
     plt.tight_layout();
     plt.ylabel('True label');
     plt.xlabel('Predicted label');
@@ -136,22 +152,14 @@ def score_svm(svm, testing_features, testing_labels, plot_matrix):
     conf_matrix = metrics.confusion_matrix(testing_labels, predicted_labels);
     # Plot the confusion matrix
     if plot_matrix == True:
-        plot_confusion_matrix(conf_matrix, label_classes, True, 'Confusion Matrix');
+        plot_confusion_matrix(conf_matrix, emotion_classes, True, 'Confusion Matrix');
     # Score the classifier based on its accuracy
     return metrics.accuracy_score(testing_labels, predicted_labels) * 100;
 
 # # # MAIN APPLICATION
 
-# Create specifications for HOG
-win_size = (48, 96);
-block_size = (16, 16);
-block_stride = (8, 8);
-cell_size = (8, 8)
-num_bins = 9
-# Create the HOG descriptor
-hog = cv2.HOGDescriptor(win_size, block_size, block_stride, cell_size, num_bins);
 # Load our images into open cv by creating references to each image
-create_image_set("Training_Set_Large", hog);
+create_image_set("Training_Set_Large");
 # Convert lists into data types that are compatible with OpenCV
 list_of_labels = np.int32(list_of_labels);
 list_of_features = np.array(list_of_features, dtype = np.float32);
@@ -174,7 +182,6 @@ print("Testing Accuracy: " + str(score_svm(my_svm, testing_features, testing_lab
 # # # INITIATE VIDEO CAPTURE DETECTION
 
 
-'''
 video_capture = cv2.VideoCapture(0);
 shouldCapture = True;
 if shouldCapture:
@@ -224,4 +231,3 @@ if shouldCapture:
     video_capture.release()
     # destroy window
     cv2.destroyAllWindows()
-'''
