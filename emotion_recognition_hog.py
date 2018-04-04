@@ -42,9 +42,11 @@ hog = cv2.HOGDescriptor(win_size, block_size, block_stride, cell_size, num_bins)
 # # # CASCADE VARIABLES AND FUNCTION
 
 # Load cascades
-face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml');
+face_cascade_1 = cv2.CascadeClassifier('haarcascade_frontalface_default.xml');
+face_cascade_3 = cv2.CascadeClassifier("haarcascade_frontalface_alt.xml");
+face_cascade_4 = cv2.CascadeClassifier("haarcascade_frontalface_alt_tree.xml");
 # Cascade detection definitions
-scale_reduction = 1.5;
+scale_reduction = 1.1;
 min_accepted_neighbour_zones = 10;
 
 def extract_aoi_features(detected_faces, grayscale_img, file, label):
@@ -65,6 +67,7 @@ def extract_aoi_features(detected_faces, grayscale_img, file, label):
             # Don't do anything, if resizing fails
             pass
     
+
 def create_image_set(set_directory):
     # Print notifier
     print("Pre-processing data and extracting features...!");
@@ -85,10 +88,16 @@ def create_image_set(set_directory):
                 # Locate the image from the list and read it using OpenCV
                 grayscale_img = cv2.imread(file);
                 # Detect faces in image using Haar Cascade - function returns the definitions of the the detected rectangle in tuples
-                faces = face_cascade.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones);
+                faces1 = face_cascade_1.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
+                faces3 = face_cascade_3.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
+                faces4 = face_cascade_4.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
                 # Check if we found a face, then use it to extract the corresponding features
-                if len(faces) > 0:
-                    extract_aoi_features(faces, grayscale_img, file, directory_index);
+                if len(faces1) == 1:
+                    extract_aoi_features(faces1, grayscale_img, file, directory_index);
+                elif len(faces3) == 1:
+                    extract_aoi_features(faces3, grayscale_img, file, directory_index);
+                elif len(faces4) == 1:
+                    extract_aoi_features(faces4, grayscale_img, file, directory_index);
                 else:
                     # We failed to find a face!
                     haar_failed += 1;
@@ -191,15 +200,15 @@ if shouldCapture:
         # convert the camera frame into a grayscale version
         grayscale_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # Detect faces
-        faces = face_cascade.detectMultiScale(grayscale_frame, scale_reduction, min_accepted_neighbour_zones);
+        faces1 = face_cascade_1.detectMultiScale(grayscale_frame, scale_reduction, min_accepted_neighbour_zones);
         # Create dependancies for live detection
         aoi = grayscale_frame;
         features_extracted = False;
         current_frame_features = [];
         # Check for detected faces
-        if len(faces) > 0:
+        if len(faces1) == 1:
             # For each detected face, generate the coordinates and dimensions of the face
-            for x, y, height, width in faces:
+            for x, y, height, width in faces1:
                 # Crop the detected face (area of interest) with approximate values for the faces
                 area_of_interest = grayscale_frame[y:(y+width), x:(x+height)];
                 # Draw rectangle on face area in the camera frame
