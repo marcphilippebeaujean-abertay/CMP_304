@@ -21,7 +21,7 @@ list_of_images = [];
 # Create list of feature vectors
 list_of_features = [];
 # Create list to assign each label value to a string
-emotion_classes = ['Happy', 'Sad', 'Fear', 'Neutral', 'Angry', 'Surprised', 'Disgust'];
+emotion_classes = ['Happy', 'Sad', 'Fear', 'Angry', 'Surprised', 'Disgust'];
 
 # Create area of interest dimensions
 hroi = 100;
@@ -64,7 +64,7 @@ def extract_aoi_features(detected_faces, grayscale_img, file, label):
             # Add index of directory as a label
             list_of_labels.append(label);
         except:
-            # Don't do anything, if resizing fails
+            # Don't do anything, if resizing fails - skip the feature
             pass
     
 
@@ -130,12 +130,13 @@ def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion Mat
     Disclaimer: the plot function was not written by me, and is available at "http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html"
     """
     if normalize:
+        # Normalize data
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis];
         print("Normalized confusion matrix");
     else:
         print('Confusion matrix, without normalization');
     
-    # 
+    # Create graph
     plt.imshow(cm, interpolation='nearest', cmap=cmap);
     plt.title(title);
     plt.colorbar();
@@ -190,21 +191,24 @@ print("Testing Accuracy: " + str(score_svm(my_svm, testing_features, testing_lab
 
 # # # INITIATE VIDEO CAPTURE DETECTION
 
+
+'''
 video_capture = cv2.VideoCapture(0);
 shouldCapture = True;
 if shouldCapture:
     # Start creating loop, using webcam image every frame
     while True:
-        # read method returns two elements, the last being the last frame captured by the camera - the _ allows us to ignore the first element
+        # Read method returns two elements, the last being the last frame captured by the camera - the _ allows us to ignore the first element
         _, frame = video_capture.read();
-        # convert the camera frame into a grayscale version
+        # Convert the camera frame into a grayscale version
         grayscale_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # Detect faces
         faces1 = face_cascade_1.detectMultiScale(grayscale_frame, scale_reduction, min_accepted_neighbour_zones);
         # Create dependancies for live detection
-        aoi = grayscale_frame;
         features_extracted = False;
         current_frame_features = [];
+        # Use histograme equalization on current frame
+        aoi = cv2.equalizeHist(grayscale_frame);
         # Check for detected faces
         if len(faces1) == 1:
             # For each detected face, generate the coordinates and dimensions of the face
@@ -236,6 +240,8 @@ if shouldCapture:
         # implement way to discontinue the application
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-    video_capture.release()
-    # destroy window
-    cv2.destroyAllWindows()
+    # Stop capturing video
+    video_capture.release();
+    # Destroy windows created by OpenCV
+    cv2.destroyAllWindows();
+'''
