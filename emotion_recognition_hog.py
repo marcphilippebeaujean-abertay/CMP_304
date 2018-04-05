@@ -44,6 +44,7 @@ hog = cv2.HOGDescriptor(win_size, block_size, block_stride, cell_size, num_bins)
 
 # Load cascades
 face_cascade_1 = cv2.CascadeClassifier('haarcascade_frontalface_default.xml');
+face_cascade_2 = cv2.CascadeClassifier("haarcascade_frontalface_alt2.xml");
 face_cascade_3 = cv2.CascadeClassifier("haarcascade_frontalface_alt.xml");
 face_cascade_4 = cv2.CascadeClassifier("haarcascade_frontalface_alt_tree.xml");
 # Cascade detection definitions
@@ -92,11 +93,14 @@ def create_data_set(set_directory):
                 grayscale_img = cv2.equalizeHist(grayscale_img);
                 # Detect faces in image using Haar Cascade - function returns the definitions of the the detected rectangle in tuples
                 faces1 = face_cascade_1.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
+                faces2 = face_cascade_2.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
                 faces3 = face_cascade_3.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
                 faces4 = face_cascade_4.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
                 # Check if we found a face, then use it to extract the corresponding features
                 if len(faces1) == 1:
                     extract_aoi_features(faces1, grayscale_img, file, directory_index);
+                elif len(faces2) == 1:
+                    extract_aoi_features(faces3, grayscale_img, file, directory_index);
                 elif len(faces3) == 1:
                     extract_aoi_features(faces3, grayscale_img, file, directory_index);
                 elif len(faces4) == 1:
