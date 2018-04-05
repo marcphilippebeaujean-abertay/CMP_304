@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import model_selection as ms
 from sklearn import metrics
+import xlsxwriter
 import glob
 import os
 import itertools
@@ -68,7 +69,7 @@ def extract_aoi_features(detected_faces, grayscale_img, file, label):
             pass
     
 
-def create_image_set(set_directory):
+def create_data_set(set_directory):
     # Print notifier
     print("Pre-processing data and extracting features...!");
     # Use OS Walk to get the name of each sub directory
@@ -110,7 +111,7 @@ def create_image_set(set_directory):
 
 
 # # # CLASSIFICATION VARIABLES
-        
+    
 def train_svm(training_features, training_labels):
     # Print notifier
     print("Training classifier - please wait!");
@@ -132,9 +133,6 @@ def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion Mat
     if normalize:
         # Normalize data
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis];
-        print("Normalized confusion matrix");
-    else:
-        print('Confusion matrix, without normalization');
     
     # Create graph
     plt.imshow(cm, interpolation='nearest', cmap=cmap);
@@ -167,10 +165,38 @@ def score_svm(svm, testing_features, testing_labels, plot_matrix):
     # Score the classifier based on its accuracy
     return metrics.accuracy_score(testing_labels, predicted_labels) * 100;
 
+# # # ACCURACY MEASUREMENT TECHNIQUES
+
+def train_test_split():
+    # Using sklearn function, divide the data into testing and training sets
+    training_features, testing_features, training_labels, testing_lables = ms.train_test_split(list_of_features, list_of_labels, test_size=0.2, random_state = 36);
+    # Create the svm
+    svm = train_svm(training_features, training_labels);
+    # Now that we have trained the SVM, make sure it can classify the training set
+    print("Training Accuracy: " + str(score_svm(svm, training_features, training_labels, False)) + "%");
+    # See how it performs on the test set
+    print("Testing Accuracy: " + str(score_svm(svm, testing_features, testing_lables, True)) + "%");
+    
+    return svm;
+
+def two_fold_cross_validation():
+    # Using sklearn function, divide the data into two folds (50/50)
+    fold1_features, fold2_features, fold1_labels, fold2_labels = ms.train_test_split(list_of_features, list_of_labels, test_size=0.5, random_state = 36);
+    # Train the svm with the first fold
+    svm_fold1 = train_svm(fold1_features, fold1_labels);
+    # Now that we have trained the SVM, make sure it can classify the training set
+    print("Fold 1 Accuracy: " + str(score_svm(svm_fold1, fold2_features, fold2_labels, False)) + "%");
+    # Train the svm with the second fold
+    svm_fold2 = train_svm(fold2_features, fold2_labels);
+    # See how it performs on the test set
+    print("Fold 2 Accuracy: " + str(score_svm(svm_fold2, fold1_features, fold1_labels, True)) + "%");
+    
+    return svm_fold1;
+
 # # # MAIN APPLICATION
 
 # Load our images into open cv by creating references to each image
-create_image_set("Training_Set_Large");
+create_data_set("Training_Set_Large");
 # Convert lists into data types that are compatible with OpenCV
 list_of_labels = np.int32(list_of_labels);
 list_of_features = np.array(list_of_features, dtype = np.float32);
@@ -180,17 +206,11 @@ print("Number of Labels: " + str(len(list_of_labels)));
 print("Feature Array: " + str(list_of_features.shape));
 # Print information about the features
 print(list_of_features.shape, list_of_labels.shape);
-# Using sklearn function, divide the data into testing and training sets
-training_features, testing_features, training_labels, testing_lables = ms.train_test_split(list_of_features, list_of_labels, test_size=0.2, random_state = 36);
-# Create the svm
-my_svm = train_svm(training_features, training_labels);
-# Now that we have trained the SVM, make sure it can classify the training set
-print("Training Accuracy: " + str(score_svm(my_svm, training_features, training_labels, False)) + "%");
-# See how it performs on the test set
-print("Testing Accuracy: " + str(score_svm(my_svm, testing_features, testing_lables, True)) + "%");
+# Create classifier
+my_svm = two_fold_cross_validation();
+my_svm = train_test_split();
 
 # # # INITIATE VIDEO CAPTURE DETECTION
-
 
 '''
 video_capture = cv2.VideoCapture(0);
