@@ -73,12 +73,12 @@ def extract_aoi_features(detected_faces, grayscale_img, file, label):
 def create_data_set(set_directory):
     # Print notifier
     print("Pre-processing data and extracting features...!");
+    # Create debugging tracker for cascades
+    haar_failed = 0;
     # Use OS Walk to get the name of each sub directory
     for root, directories, files in os.walk(set_directory):
         # Loop through sub directorys in main directory to get their names
         for directory_index, directory in enumerate(directories):
-            # Create debugging trackers
-            haar_failed = 0;
             # Create variable that tracks number of files in each directory
             FileNumberInDir = 0;
             # Create path name based on the current directory and the directories we are reading from
@@ -108,17 +108,15 @@ def create_data_set(set_directory):
                 else:
                     # We failed to find a face!
                     haar_failed += 1;
-            # Print how many haar cascades we failed to find
-            print("Failed Haar Cascades: " + str(haar_failed));
             # Print all the sub-directories of our  training set
             print(directory + " ( " + str(directory_index) + " ) : " + str(FileNumberInDir - haar_failed));
+    # Print how many haar cascades we failed to find
+    print("Failed Haar Cascades: " + str(haar_failed));
 
 
 # # # CLASSIFICATION VARIABLES
     
 def train_svm(training_features, training_labels):
-    # Print notifier
-    print("Training classifier - please wait!");
     # Initiate the classifier object from OpenCV
     svm = cv2.ml.SVM_create();
     # Specify a kernel
@@ -171,53 +169,77 @@ def score_svm(svm, testing_features, testing_labels, plot_matrix):
 
 # # # ACCURACY MEASUREMENT TECHNIQUES
 
-def train_test_split():
+def train_test_split(rand_seed):
     # Using sklearn function, divide the data into testing and training sets
-    training_features, testing_features, training_labels, testing_lables = ms.train_test_split(list_of_features, list_of_labels, test_size=0.2, random_state = 36);
+    training_features, testing_features, training_labels, testing_lables = ms.train_test_split(list_of_features, list_of_labels, test_size=0.2, random_state = rand_seed);
     # Create the svm
     svm = train_svm(training_features, training_labels);
     # Now that we have trained the SVM, make sure it can classify the training set
     print("Training Accuracy: " + str(score_svm(svm, training_features, training_labels, False)) + "%");
     # See how it performs on the test set
     print("Testing Accuracy: " + str(score_svm(svm, testing_features, testing_lables, True)) + "%");
-    
+    # Returned the trained classifier
     return svm;
+
+def k_fold_validation(k_fold, rand_seed):
+    # Create variable that will store all scores and calculate the final accuracy
+    combined_score = 0;
+    # Create the k-fold validator
+    kf = ms.KFold(n_splits = k_fold, shuffle = True, random_state = rand_seed);
+    # Segment the data
+    kf.get_n_splits(list_of_features);
+    # Generate random split indices from the data
+    for train_index, test_index in kf.split(list_of_features):
+        # Assign the labels for testing and training in this fold
+        fold_feat_train, fold_feat_test = list_of_features[train_index], list_of_features[test_index];
+        fold_label_train, fold_label_test = list_of_labels[train_index], list_of_labels[test_index];
+        # Train a new SVM using the fold training data
+        svm = train_svm(fold_feat_train, fold_label_train);
+        # Add the fold accuracy score
+        combined_score += score_svm(svm, fold_feat_test, fold_label_test, False);
+    # Print the final mean score from all the folds
+    combined_score /= k_fold;
+    print(str(k_fold) + "-Fold Cross-Validation Accuracy: " + str(combined_score));
+        
+        
 
 def two_fold_cross_validation():
     # Using sklearn function, divide the data into two folds (50/50)
     fold1_features, fold2_features, fold1_labels, fold2_labels = ms.train_test_split(list_of_features, list_of_labels, test_size=0.5, random_state = 36);
     # Train the svm with the first fold
     svm_fold1 = train_svm(fold1_features, fold1_labels);
-    # Now that we have trained the SVM, make sure it can classify the training set
-    print("Fold 1 Accuracy: " + str(score_svm(svm_fold1, fold2_features, fold2_labels, False)) + "%");
+    # Now that we have trained the classifier, we can see how it performs on the other fold
+    fold1_score = score_svm(svm_fold1, fold2_features, fold2_labels, False)
+    print("Fold 1 Accuracy: " + str(fold1_score) + "%");
     # Train the svm with the second fold
     svm_fold2 = train_svm(fold2_features, fold2_labels);
     # See how it performs on the test set
-    print("Fold 2 Accuracy: " + str(score_svm(svm_fold2, fold1_features, fold1_labels, True)) + "%");
-    
-    return svm_fold1;
+    fold2_score = score_svm(svm_fold2, fold1_features, fold1_labels, False);
+    print("Fold 2 Accuracy: " + str(fold2_score) + "%");
+    # Display the final average accuracy of the two scores
+    avg_score = ((fold2_score + fold1_score) / 2);
+    print("Average Cross-Validation Accuracy: " + str(avg_score) + "%");
 
 # # # MAIN APPLICATION
 
 # Load our images into open cv by creating references to each image
-create_data_set("Training_Set_Large");
+create_data_set("Training_Set");
 # Convert lists into data types that are compatible with OpenCV
 list_of_labels = np.int32(list_of_labels);
 list_of_features = np.array(list_of_features, dtype = np.float32);
 # Print the extracted matrices
-print("Number of pictures: " + str(len(list_of_images)))
-print("Number of Labels: " + str(len(list_of_labels)));
-print("Feature Array: " + str(list_of_features.shape));
+print("Total Data: " + str(len(list_of_images)) + " Images");
 # Print information about the features
-print(list_of_features.shape, list_of_labels.shape);
-# Create classifier
-my_svm = two_fold_cross_validation();
-my_svm = train_test_split();
+print("Training and assessing clasifier...");
+# Create classifier and test it
+my_svm = train_test_split(39);
+k_fold_svm = k_fold_validation(5, 39);
 
 # # # INITIATE VIDEO CAPTURE DETECTION
-
 '''
+# Create capture device
 video_capture = cv2.VideoCapture(0);
+# Toggle bool that can be used to skip webcam detection
 shouldCapture = True;
 if shouldCapture:
     # Start creating loop, using webcam image every frame
