@@ -131,13 +131,11 @@ def train_svm(training_features, training_labels):
     # Return the trained classifier
     return svm;
 
-def train_rtree(training_features, training_labels):
+def train_rtree(training_features, training_labels, n_trees):
     # Initiate decision tree classifier
     rtree = cv2.ml.RTrees_create();
-    # Define the number of trees
-    n_trees = 10;
     # Define when the algorithm should stop iterating (when score does not increase by at least 1)
-    min_iteration_score = 1;
+    min_iteration_score = 0.1;
     # Apply the parameters
     params = (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS, n_trees, min_iteration_score);
     rtree.setTermCriteria(params);
@@ -185,6 +183,18 @@ def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion Mat
     plt.ylabel('True label');
     plt.xlabel('Predicted label');
 
+def score_nearest_neighbour_classifier(classifier, testing_features, testing_labels, plot_matrix, k_value):
+    # Make prediction based on the testing features
+    _, predicted_labels, _, _, = classifier.findNearest(testing_features, k_value);
+    # Check if matrix should be printed
+    if plot_matrix == True:
+        # Create a confusion matrix
+        conf_matrix = metrics.confusion_matrix(testing_labels, predicted_labels);
+        # Plot the confusion matrix
+        plot_confusion_matrix(conf_matrix, emotion_classes, True, 'Confusion Matrix');
+    # Score the classifier based on its accuracy
+    return metrics.accuracy_score(testing_labels, predicted_labels) * 100;
+
 def score_classifier(classifier, testing_features, testing_labels, plot_matrix):
     # Make prediction based on the testing features
     _, predicted_labels = classifier.predict(testing_features);
@@ -199,11 +209,11 @@ def score_classifier(classifier, testing_features, testing_labels, plot_matrix):
 
 # # # ACCURACY MEASUREMENT TECHNIQUES
 
-def train_test_split(rand_seed, print_matrix):
+def train_test_split(rand_seed, print_matrix, trees):
     # Using sklearn function, divide the data into testing and training sets
     training_features, testing_features, training_labels, testing_lables = ms.train_test_split(list_of_features, list_of_labels, test_size=0.2, random_state = rand_seed);
     # Create the svm
-    classifier = train_tree(training_features, training_labels);
+    classifier = train_svm(training_features, training_labels);
     # Returned the trained classifier
     return round(score_classifier(classifier, testing_features, testing_lables, print_matrix), decimal_place);
 
@@ -220,7 +230,7 @@ def k_fold_validation(k_fold, rand_seed):
         fold_feat_train, fold_feat_test = list_of_features[train_index], list_of_features[test_index];
         fold_label_train, fold_label_test = list_of_labels[train_index], list_of_labels[test_index];
         # Train a new SVM using the fold training data
-        classifier = train_tree(fold_feat_train, fold_label_train);
+        classifier = train_svm(fold_feat_train, fold_label_train);
         # Add the fold accuracy score
         combined_score += score_classifier(classifier, fold_feat_test, fold_label_test, False);
     # Print the final mean score from all the folds
@@ -246,14 +256,14 @@ k_folds = 5;
 ttl_training_score = 0;
 ttl_cross_validation_score = 0;
 # Create a workbook and add a worksheet.
-workbook = xlsxwriter.Workbook('decisiontree.xlsx');
+workbook = xlsxwriter.Workbook('treeamnttest.xlsx');
 worksheet = workbook.add_worksheet();
 # Add headers for the spreadsheet
 worksheet.write(0, 1, 'Training Scores');
 worksheet.write(0, 2, 'Cross Validation Scores');
 worksheet.write(0, 0, 'Trial Number');
 # Create loop for each trial
-for x in range(0, repetitions):
+for x in range(1, (repetitions+1)):
     # Add trial number indicator to the spreadsheet
     worksheet.write(x+1, 0, x+1);
     # Condition that checks if the confusion matrix should be displayed
@@ -265,7 +275,7 @@ for x in range(0, repetitions):
     cur_training_score = train_test_split(x, should_print_matrix);
     ttl_training_score += cur_training_score;
     # Add score to the spreadsheet
-    worksheet.write(x+1, 1, cur_training_score);
+    worksheet.write(x, 1, cur_training_score);
     # Get accuracy when k-fold cross-validation is used
     cur_cross_validation_score = k_fold_validation(k_folds, x);
     ttl_cross_validation_score += cur_cross_validation_score;
