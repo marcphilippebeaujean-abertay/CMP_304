@@ -28,6 +28,8 @@ emotion_classes = ['Happy', 'Sad', 'Fear', 'Angry', 'Surprised', 'Disgust'];
 hroi = 100;
 wroi = 100;
 
+# Define to what decimal place the final data needs to be rounded
+decimal_place = 2;
 
 # # # CREATE DEPENDANCIES FOR HOG FEATURE EXTRACTION
 
@@ -92,22 +94,25 @@ def create_data_set(set_directory):
                 # Apply histogram equalisation to expose features
                 grayscale_img = cv2.equalizeHist(grayscale_img);
                 # Detect faces in image using Haar Cascade - function returns the definitions of the the detected rectangle in tuples
-                faces1 = face_cascade_1.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
-                faces2 = face_cascade_2.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
-                faces3 = face_cascade_3.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
-                faces4 = face_cascade_4.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE)
+                faces1 = face_cascade_1.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE);
                 # Check if we found a face, then use it to extract the corresponding features
                 if len(faces1) == 1:
                     extract_aoi_features(faces1, grayscale_img, file, directory_index);
-                elif len(faces2) == 1:
-                    extract_aoi_features(faces3, grayscale_img, file, directory_index);
-                elif len(faces3) == 1:
-                    extract_aoi_features(faces3, grayscale_img, file, directory_index);
-                elif len(faces4) == 1:
-                    extract_aoi_features(faces4, grayscale_img, file, directory_index);
                 else:
-                    # We failed to find a face!
-                    haar_failed += 1;
+                    faces2 = face_cascade_2.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE);
+                    if len(faces2) == 1:
+                        extract_aoi_features(faces2, grayscale_img, file, directory_index);
+                    else:
+                        faces3 = face_cascade_3.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE);
+                        if len(faces3) == 1:
+                            extract_aoi_features(faces3, grayscale_img, file, directory_index);
+                        else:
+                            faces4 = face_cascade_4.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE);
+                            if len(faces4) == 1:
+                                extract_aoi_features(faces4, grayscale_img, file, directory_index);
+                            else:
+                                # We failed to find a face!
+                                haar_failed += 1;
             # Print all the sub-directories of our  training set
             print(directory + " ( " + str(directory_index) + " ) : " + str(FileNumberInDir - haar_failed));
     # Print how many haar cascades we failed to find
@@ -117,14 +122,37 @@ def create_data_set(set_directory):
 # # # CLASSIFICATION VARIABLES
     
 def train_svm(training_features, training_labels):
-    # Initiate the classifier object from OpenCV
+   # Initiate the classifier object from OpenCV
     svm = cv2.ml.SVM_create();
     # Specify a kernel
     svm.setKernel(cv2.ml.SVM_LINEAR);
     # Train the classifier using the training set
-    svm.train(training_features, cv2.ml.ROW_SAMPLE, training_labels); 
+    svm.train(training_features, cv2.ml.ROW_SAMPLE, training_labels);  
     # Return the trained classifier
     return svm;
+
+def train_rtree(training_features, training_labels):
+    # Initiate decision tree classifier
+    rtree = cv2.ml.RTrees_create();
+    # Define the number of trees
+    n_trees = 10;
+    # Define when the algorithm should stop iterating (when score does not increase by at least 1)
+    min_iteration_score = 1;
+    # Apply the parameters
+    params = (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS, n_trees, min_iteration_score);
+    rtree.setTermCriteria(params);
+    # Train the decision tree
+    rtree.train(training_features.astype(np.float32), cv2.ml.ROW_SAMPLE, training_labels);
+    # Return the trained classifier
+    return rtree;
+
+def train_knearest_neighbour(training_features, training_labels):
+    # Initiate k-nearest neighbour classifier
+    knearest = cv2.ml.KNearest_create();
+    # Train the decision tree
+    knearest.train(training_features, cv2.ml.ROW_SAMPLE, training_labels);
+    # Return the trained classifier
+    return knearest;
 
 def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion Matrix', cmap = plt.cm.Blues):
     """
@@ -132,6 +160,7 @@ def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion Mat
     Normalization can be applied by setting `normalize=True`.
     Disclaimer: the plot function was not written by me, and is available at "http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html"
     """
+    
     if normalize:
         # Normalize data
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis];
@@ -156,30 +185,27 @@ def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion Mat
     plt.ylabel('True label');
     plt.xlabel('Predicted label');
 
-def score_svm(svm, testing_features, testing_labels, plot_matrix):
+def score_classifier(classifier, testing_features, testing_labels, plot_matrix):
     # Make prediction based on the testing features
-    _, predicted_labels = svm.predict(testing_features);
-    # Create a confusion matrix
-    conf_matrix = metrics.confusion_matrix(testing_labels, predicted_labels);
-    # Plot the confusion matrix
+    _, predicted_labels = classifier.predict(testing_features);
+    # Check if matrix should be printed
     if plot_matrix == True:
+        # Create a confusion matrix
+        conf_matrix = metrics.confusion_matrix(testing_labels, predicted_labels);
+        # Plot the confusion matrix
         plot_confusion_matrix(conf_matrix, emotion_classes, True, 'Confusion Matrix');
     # Score the classifier based on its accuracy
     return metrics.accuracy_score(testing_labels, predicted_labels) * 100;
 
 # # # ACCURACY MEASUREMENT TECHNIQUES
 
-def train_test_split(rand_seed):
+def train_test_split(rand_seed, print_matrix):
     # Using sklearn function, divide the data into testing and training sets
     training_features, testing_features, training_labels, testing_lables = ms.train_test_split(list_of_features, list_of_labels, test_size=0.2, random_state = rand_seed);
     # Create the svm
-    svm = train_svm(training_features, training_labels);
-    # Now that we have trained the SVM, make sure it can classify the training set
-    print("Training Accuracy: " + str(score_svm(svm, training_features, training_labels, False)) + "%");
-    # See how it performs on the test set
-    print("Testing Accuracy: " + str(score_svm(svm, testing_features, testing_lables, True)) + "%");
+    classifier = train_tree(training_features, training_labels);
     # Returned the trained classifier
-    return svm;
+    return round(score_classifier(classifier, testing_features, testing_lables, print_matrix), decimal_place);
 
 def k_fold_validation(k_fold, rand_seed):
     # Create variable that will store all scores and calculate the final accuracy
@@ -194,53 +220,74 @@ def k_fold_validation(k_fold, rand_seed):
         fold_feat_train, fold_feat_test = list_of_features[train_index], list_of_features[test_index];
         fold_label_train, fold_label_test = list_of_labels[train_index], list_of_labels[test_index];
         # Train a new SVM using the fold training data
-        svm = train_svm(fold_feat_train, fold_label_train);
+        classifier = train_tree(fold_feat_train, fold_label_train);
         # Add the fold accuracy score
-        combined_score += score_svm(svm, fold_feat_test, fold_label_test, False);
+        combined_score += score_classifier(classifier, fold_feat_test, fold_label_test, False);
     # Print the final mean score from all the folds
     combined_score /= k_fold;
-    print(str(k_fold) + "-Fold Cross-Validation Accuracy: " + str(combined_score));
-        
-        
-
-def two_fold_cross_validation():
-    # Using sklearn function, divide the data into two folds (50/50)
-    fold1_features, fold2_features, fold1_labels, fold2_labels = ms.train_test_split(list_of_features, list_of_labels, test_size=0.5, random_state = 36);
-    # Train the svm with the first fold
-    svm_fold1 = train_svm(fold1_features, fold1_labels);
-    # Now that we have trained the classifier, we can see how it performs on the other fold
-    fold1_score = score_svm(svm_fold1, fold2_features, fold2_labels, False)
-    print("Fold 1 Accuracy: " + str(fold1_score) + "%");
-    # Train the svm with the second fold
-    svm_fold2 = train_svm(fold2_features, fold2_labels);
-    # See how it performs on the test set
-    fold2_score = score_svm(svm_fold2, fold1_features, fold1_labels, False);
-    print("Fold 2 Accuracy: " + str(fold2_score) + "%");
-    # Display the final average accuracy of the two scores
-    avg_score = ((fold2_score + fold1_score) / 2);
-    print("Average Cross-Validation Accuracy: " + str(avg_score) + "%");
+    return round(combined_score, decimal_place);
 
 # # # MAIN APPLICATION
 
 # Load our images into open cv by creating references to each image
-create_data_set("Training_Set");
+create_data_set("Training_Set_Large");
 # Convert lists into data types that are compatible with OpenCV
 list_of_labels = np.int32(list_of_labels);
 list_of_features = np.array(list_of_features, dtype = np.float32);
 # Print the extracted matrices
 print("Total Data: " + str(len(list_of_images)) + " Images");
 # Print information about the features
-print("Training and assessing clasifier...");
-# Create classifier and test it
-my_svm = train_test_split(39);
-k_fold_svm = k_fold_validation(5, 39);
+print("Assessing clasifier...");
+# Evaluate the classifier - define how many trials should be made
+repetitions = 30;
+# Define number of folds for cross validation
+k_folds = 5;
+# Create variables to track accuracy of classifier
+ttl_training_score = 0;
+ttl_cross_validation_score = 0;
+# Create a workbook and add a worksheet.
+workbook = xlsxwriter.Workbook('decisiontree.xlsx');
+worksheet = workbook.add_worksheet();
+# Add headers for the spreadsheet
+worksheet.write(0, 1, 'Training Scores');
+worksheet.write(0, 2, 'Cross Validation Scores');
+worksheet.write(0, 0, 'Trial Number');
+# Create loop for each trial
+for x in range(0, repetitions):
+    # Add trial number indicator to the spreadsheet
+    worksheet.write(x+1, 0, x+1);
+    # Condition that checks if the confusion matrix should be displayed
+    should_print_matrix = False;
+    # It should only be printed once - lets use the matrix from the first trial
+    if x == 0:
+        should_print_matrix = True;
+    # Get accuracy of regular training and testing split
+    cur_training_score = train_test_split(x, should_print_matrix);
+    ttl_training_score += cur_training_score;
+    # Add score to the spreadsheet
+    worksheet.write(x+1, 1, cur_training_score);
+    # Get accuracy when k-fold cross-validation is used
+    cur_cross_validation_score = k_fold_validation(k_folds, x);
+    ttl_cross_validation_score += cur_cross_validation_score;
+    # Add score to the spreadsheet
+    worksheet.write(x+1, 2, cur_cross_validation_score);
+# Get mean of scores
+ttl_training_score /= repetitions;
+ttl_cross_validation_score /= repetitions;
+# Close workbook
+workbook.close();
+# Print final scores
+print("Training Score: " + str(round(ttl_training_score, decimal_place)) + "%");
+print("Cross-Validation Score: " + str(round(ttl_cross_validation_score, decimal_place)) + "%");
+# Create final classifier
+classifier = train_svm(list_of_features, list_of_labels);
 
 # # # INITIATE VIDEO CAPTURE DETECTION
-'''
+
 # Create capture device
 video_capture = cv2.VideoCapture(0);
 # Toggle bool that can be used to skip webcam detection
-shouldCapture = True;
+shouldCapture = False;
 if shouldCapture:
     # Start creating loop, using webcam image every frame
     while True:
@@ -276,7 +323,7 @@ if shouldCapture:
                     pass
         if features_extracted == True:
             # Use classifier to make a prediction
-            _, predicted_label = my_svm.predict(current_frame_features);
+            _, predicted_label = classifier.predict(current_frame_features);
             # Print the prediction on our frame
             display_text = "Emotion: " + str(predicted_label);
             font = cv2.FONT_HERSHEY_SIMPLEX;
@@ -290,4 +337,3 @@ if shouldCapture:
     video_capture.release();
     # Destroy windows created by OpenCV
     cv2.destroyAllWindows();
-'''
