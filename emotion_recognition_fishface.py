@@ -9,15 +9,11 @@ import glob
 import os
 import itertools
 
-
-# # # SVM Classification Parameters
-kernels = [cv2.ml.SVM_LINEAR, cv2.ml.SVM_INTER, cv2.ml.SVM_SIGMOID, cv2.ml.SVM_RBF];
-
 # # # CREATE LISTS FOR OUR DATA
 
-# Labels are from 0 - 5, corresponding to the index of the imagess
+# Since some images get removed with Haar Cascade, a new lable array is created
 list_of_labels = [];
-# Store pre-process iamges for fisherface anlysis
+# Create labels for each image (which are integers from 0 - 6)
 list_of_images = [];
 # Create list of feature vectors
 list_of_features = [];
@@ -53,7 +49,7 @@ face_cascade_4 = cv2.CascadeClassifier("haarcascade_frontalface_alt_tree.xml");
 scale_reduction = 1.1;
 min_accepted_neighbour_zones = 10;
 
-def extract_aoi_features(detected_faces, grayscale_img, label):
+def extract_aoi_features(detected_faces, grayscale_img, file, label):
     # For each detected face, generate the coordinates and dimensions of the face
     for x, y, height, width in detected_faces:
         # Crop the detected face (area of interest)
@@ -64,7 +60,7 @@ def extract_aoi_features(detected_faces, grayscale_img, label):
             # Extract hog features from the area of interest
             list_of_features.append(hog.compute(resized_aoi, (64, 64)));
             # Create reference to the image
-            list_of_images.append(resized_aoi);
+            list_of_images.append(re);
             # Add index of directory as a label
             list_of_labels.append(label);
         except:
@@ -97,19 +93,19 @@ def create_data_set(set_directory):
                 faces1 = face_cascade_1.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE);
                 # Check if we found a face, then use it to extract the corresponding features
                 if len(faces1) == 1:
-                    extract_aoi_features(faces1, grayscale_img, directory_index);
+                    extract_aoi_features(faces1, grayscale_img, file, directory_index);
                 else:
                     faces2 = face_cascade_2.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE);
                     if len(faces2) == 1:
-                        extract_aoi_features(faces2, grayscale_img, directory_index);
+                        extract_aoi_features(faces2, grayscale_img, file, directory_index);
                     else:
                         faces3 = face_cascade_3.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE);
                         if len(faces3) == 1:
-                            extract_aoi_features(faces3, grayscale_img, directory_index);
+                            extract_aoi_features(faces3, grayscale_img, file, directory_index);
                         else:
                             faces4 = face_cascade_4.detectMultiScale(grayscale_img, scale_reduction, min_accepted_neighbour_zones, minSize=(5, 5), flags=cv2.CASCADE_SCALE_IMAGE);
                             if len(faces4) == 1:
-                                extract_aoi_features(faces4, grayscale_img, directory_index);
+                                extract_aoi_features(faces4, grayscale_img, file, directory_index);
                             else:
                                 # We failed to find a face!
                                 haar_failed += 1;
@@ -151,7 +147,6 @@ def train_knearest_neighbour(training_features, training_labels):
     knearest.train(training_features, cv2.ml.ROW_SAMPLE, training_labels);
     # Return the trained classifier
     return knearest;
-    
 
 def plot_confusion_matrix(cm, classes, normalize = False, title = 'Confusion Matrix', cmap = plt.cm.Blues):
     """
@@ -214,7 +209,7 @@ def train_test_split(rand_seed, print_matrix):
     # Using sklearn function, divide the data into testing and training sets
     training_features, testing_features, training_labels, testing_lables = ms.train_test_split(list_of_features, list_of_labels, test_size=0.2, random_state = rand_seed);
     # Create the svm
-    classifier = train_svm(training_features, training_labels);
+    classifier = train_rtree(training_features, training_labels);
     # Returned the trained classifier
     return round(score_classifier(classifier, testing_features, testing_lables, print_matrix), decimal_place);
 
@@ -228,10 +223,10 @@ def k_fold_validation(k_fold, rand_seed):
     # Generate random split indices from the data
     for train_index, test_index in kf.split(list_of_features):
         # Assign the labels for testing and training in this fold
-        fold_feat_train, fold_feat_test = list_of_features[train_index], list_of_images[test_index];
+        fold_feat_train, fold_feat_test = list_of_features[train_index], list_of_features[test_index];
         fold_label_train, fold_label_test = list_of_labels[train_index], list_of_labels[test_index];
         # Train a new SVM using the fold training data
-        classifier = train_svm(fold_feat_train, fold_label_train);
+        classifier = train_rtree(fold_feat_train, fold_label_train);
         # Add the fold accuracy score
         combined_score += score_classifier(classifier, fold_feat_test, fold_label_test, False);
     # Print the final mean score from all the folds
@@ -241,7 +236,7 @@ def k_fold_validation(k_fold, rand_seed):
 # # # MAIN APPLICATION
 
 # Load our images into open cv by creating references to each image
-create_data_set("Training_Set");
+create_data_set("Training_Set_Large");
 # Convert lists into data types that are compatible with OpenCV
 list_of_labels = np.int32(list_of_labels);
 list_of_features = np.array(list_of_features, dtype = np.float32);
