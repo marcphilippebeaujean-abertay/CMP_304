@@ -25,8 +25,8 @@ list_of_features = [];
 emotion_classes = ['Happy', 'Sad', 'Fear', 'Angry', 'Surprised', 'Disgust'];
 
 # Create area of interest dimensions
-hroi = 100;
-wroi = 100;
+hroi = 150;
+wroi = 150;
 
 # Define to what decimal place the final data needs to be rounded
 decimal_place = 2;
@@ -37,7 +37,7 @@ decimal_place = 2;
 win_size = (48, 96);
 block_size = (16, 16);
 block_stride = (8, 8);
-cell_size = (8, 8)
+cell_size = (8, 8);
 num_bins = 9
 # Create the HOG descriptor
 hog = cv2.HOGDescriptor(win_size, block_size, block_stride, cell_size, num_bins);
@@ -228,7 +228,7 @@ def k_fold_validation(k_fold, rand_seed):
     # Generate random split indices from the data
     for train_index, test_index in kf.split(list_of_features):
         # Assign the labels for testing and training in this fold
-        fold_feat_train, fold_feat_test = list_of_features[train_index], list_of_images[test_index];
+        fold_feat_train, fold_feat_test = list_of_features[train_index], list_of_features[test_index];
         fold_label_train, fold_label_test = list_of_labels[train_index], list_of_labels[test_index];
         # Train a new SVM using the fold training data
         classifier = train_svm(fold_feat_train, fold_label_train);
@@ -241,7 +241,7 @@ def k_fold_validation(k_fold, rand_seed):
 # # # MAIN APPLICATION
 
 # Load our images into open cv by creating references to each image
-create_data_set("Training_Set");
+create_data_set("Training_Set_Large");
 # Convert lists into data types that are compatible with OpenCV
 list_of_labels = np.int32(list_of_labels);
 list_of_features = np.array(list_of_features, dtype = np.float32);
@@ -250,14 +250,14 @@ print("Total Data: " + str(len(list_of_images)) + " Images");
 # Print information about the features
 print("Assessing clasifier...");
 # Evaluate the classifier - define how many trials should be made
-repetitions = 30;
+repetitions = 1;
 # Define number of folds for cross validation
 k_folds = 5;
 # Create variables to track accuracy of classifier
 ttl_training_score = 0;
 ttl_cross_validation_score = 0;
 # Create a workbook and add a worksheet.
-workbook = xlsxwriter.Workbook('nearestneighbourfinal.xlsx');
+workbook = xlsxwriter.Workbook('300x300imagesize.xlsx');
 worksheet = workbook.add_worksheet();
 # Add headers for the spreadsheet
 worksheet.write(0, 1, 'Training Scores');
@@ -298,7 +298,7 @@ classifier = train_svm(list_of_features, list_of_labels);
 # Create capture device
 video_capture = cv2.VideoCapture(0);
 # Toggle bool that can be used to skip webcam detection
-shouldCapture = False;
+shouldCapture = True;
 if shouldCapture:
     # Start creating loop, using webcam image every frame
     while True:
@@ -335,8 +335,13 @@ if shouldCapture:
         if features_extracted == True:
             # Use classifier to make a prediction
             _, predicted_label = classifier.predict(current_frame_features);
+            emotion_string = "";
             # Print the prediction on our frame
-            display_text = "Emotion: " + str(predicted_label);
+            predicted_label = np.int32(predicted_label[0][0]);
+            #for label in predicted_label:
+            print(predicted_label);
+            emotion_string = emotion_classes[predicted_label];
+            display_text = "Emotion: " + str(emotion_string);
             font = cv2.FONT_HERSHEY_SIMPLEX;
             cv2.putText(frame, display_text, (10, 50), font, 1, (255,255,255), 2, cv2.LINE_AA);
         # Use open CV to display the final camera frame
