@@ -25,8 +25,8 @@ list_of_features = [];
 emotion_classes = ['Happy', 'Sad', 'Fear', 'Angry', 'Surprised', 'Disgust'];
 
 # Create area of interest dimensions
-hroi = 150;
-wroi = 150;
+hroi = 100;
+wroi = 100;
 
 # Define to what decimal place the final data needs to be rounded
 decimal_place = 2;
@@ -37,7 +37,7 @@ decimal_place = 2;
 win_size = (48, 96);
 block_size = (16, 16);
 block_stride = (8, 8);
-cell_size = (8, 8);
+cell_size = (8, 8)
 num_bins = 9
 # Create the HOG descriptor
 hog = cv2.HOGDescriptor(win_size, block_size, block_stride, cell_size, num_bins);
@@ -241,7 +241,7 @@ def k_fold_validation(k_fold, rand_seed):
 # # # MAIN APPLICATION
 
 # Load our images into open cv by creating references to each image
-create_data_set("Training_Set_Large");
+create_data_set("Training_Set_Final");
 # Convert lists into data types that are compatible with OpenCV
 list_of_labels = np.int32(list_of_labels);
 list_of_features = np.array(list_of_features, dtype = np.float32);
@@ -333,13 +333,13 @@ if shouldCapture:
                 except:
                     pass
         if features_extracted == True:
-            # Use classifier to make a prediction
+           # Use classifier to make a prediction
             _, predicted_label = classifier.predict(current_frame_features);
             emotion_string = "";
             # Print the prediction on our frame
             predicted_label = np.int32(predicted_label[0][0]);
             #for label in predicted_label:
-            print(predicted_label);
+            ##print(predicted_label);
             emotion_string = emotion_classes[predicted_label];
             display_text = "Emotion: " + str(emotion_string);
             font = cv2.FONT_HERSHEY_SIMPLEX;
